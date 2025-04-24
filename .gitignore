@@ -1,0 +1,16 @@
+.DS_Store
+.vscode/launch.json
+OSD_data/Pre-Processed/
+OSD_data/prepared/
+OSD_data/
+OSD/utils/pre_processing/__pycache__/prepare_data.cpython-312.pyc
+OSD/utils/pre_processing/__pycache__/bdsp_sleep_functions.cpython-312.pyc
+OSD/utils/data_loaders/__pycache__/custom_data_loader.cpython-312.pyc
+OSD/utils/data_loaders/__pycache__/data_loader_preparation.cpython-312.pyc
+OSD/utils/data_loaders/__pycache__/loader_functions.cpython-312.pyc
+OSD/utils/hyperparameters/__pycache__/custom_callbacks.cpython-312.pyc
+OSD/utils/models/__pycache__/OSD_architecture.cpython-312.pyc
+OSD/utils/models/custom_layers/__pycache__/ordistic_regression.cpython-312.pyc
+OSD/utils/models/__pycache__/OSD_architecture.cpython-312.pyc
+OSD/utils/models/__pycache__/OSD_architecture.cpython-312.pyc
+OSD_predictions/OSD_FINAL_old/
