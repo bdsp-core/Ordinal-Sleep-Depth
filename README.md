@@ -34,8 +34,8 @@ For the OSD-specific functionality, the script `RUN_OSD.py` is recommended, as i
 1. Install Python (recommended version: `>=3.x`).  
 2. Clone the repository:  
    ```bash  
-   git clone https://github.com/emeulenbrugge/OSD.git  
-   cd OSD
+   git clone https://github.com/bdsp-core/Ordinal-Sleep-Depth.git  
+   cd Ordinal-Sleep-Depth
 3. Install dependencies:
     pip install -r requirements.txt  
 4. Download the dataset from [https://www.bdsp.io/](https://www.bdsp.io/) and store all .h5 files in the DATA_OSD/ folder.
