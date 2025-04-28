@@ -38,7 +38,7 @@ For the OSD-specific functionality, the script `RUN_OSD.py` is recommended, as i
    cd Ordinal-Sleep-Depth
 3. Install dependencies:
     pip install -r requirements.txt  
-4. Download the dataset from [https://bdsp.io/](https://bdsp.io/) and store all .h5 files in the DATA_OSD/ folder.
+4. Download the dataset from [https://bdsp.io/](https://bdsp.io/content/ordinal-sleep-depth/1.0/) and store all .h5 files in the DATA_OSD/ folder.
 5. Run the scripts in order:
     Step_0_pre_process_data.py  
     Step_1_train_model.py  
