@@ -14,3 +14,7 @@ OSD/utils/models/custom_layers/__pycache__/ordistic_regression.cpython-312.pyc
 OSD/utils/models/__pycache__/OSD_architecture.cpython-312.pyc
 OSD/utils/models/__pycache__/OSD_architecture.cpython-312.pyc
 OSD_predictions/OSD_FINAL_old/
+OSD/utils/data_loaders/__pycache__/
+OSD/utils/models/__pycache__/
+OSD/utils/models/custom_layers/__pycache__/
+OSD/utils/pre_processing/__pycache__/
