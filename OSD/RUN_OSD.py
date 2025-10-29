@@ -14,6 +14,7 @@ from mne.preprocessing import EOGRegression
 
 # ------------- CONFIGURATION ----------------
 WORKING_DIRECTORY = '/home/wolfgang/repos/Ordinal-Sleep-Depth'
+FILES_DIRECTORY = '/d/cdac Dropbox/Wolfgang Ganglberger/WolfgangGanglberger/CLAS_Teun_Project/'
 PROCESS_ALL = True
 SPLIT = 'test'  # can be train, val, or test
 BATCH_SIZE = 32
@@ -21,13 +22,14 @@ MODEL_VERSION = 'OSD_MODEL'
 CUDA_DEVICE = "0"
 os.environ["CUDA_VISIBLE_DEVICES"] = CUDA_DEVICE
 
-WRITE_PATH_EDF = f'{WORKING_DIRECTORY}/OSD_data/prepared/'
-WRITE_PATH_H5 = WRITE_PATH_EDF # f'{WORKING_DIRECTORY}/OSD_data/Pre-Processed/'
+DIRECTORY_EDF_FILES = f'{FILES_DIRECTORY}/edfTestSubjects'
+PATH_PREPARED = f'{FILES_DIRECTORY}/prepared_data/'
+WRITE_PATH_H5 = PATH_PREPARED  # f'{WORKING_DIRECTORY}/OSD_data/Pre-Processed/'
 WEIGHTS_PATH = f'{WORKING_DIRECTORY}/OSD/utils/models/weights_scaler/OSD_weigths.h5'
 CSV_SPLIT_PATH = f'{WORKING_DIRECTORY}/OSD/utils/data_split/{SPLIT}.csv'
-PREDICTION_WRITE_PATH = f'{WORKING_DIRECTORY}/OSD_predictions/{MODEL_VERSION}/{SPLIT}/'
+PREDICTION_WRITE_PATH = f'{FILES_DIRECTORY}/OSD_predictions/'
 
-os.makedirs(WRITE_PATH_EDF, exist_ok=True)
+os.makedirs(PATH_PREPARED, exist_ok=True)
 os.makedirs(WRITE_PATH_H5, exist_ok=True)
 os.makedirs(PREDICTION_WRITE_PATH, exist_ok=True)
 
@@ -40,7 +42,7 @@ def find_edf_files(directory):
 def convert_edf_to_h5():
     edf_files = find_edf_files(WORKING_DIRECTORY)
     for path_input in edf_files:
-        output_path = opj(WRITE_PATH_EDF, path_input.split('/')[-1].replace('_task-psg_eeg','')).replace('.edf','.h5')
+        output_path = opj(PATH_PREPARED, path_input.split('/')[-1].replace('_task-psg_eeg','')).replace('.edf','.h5')
         process_file(path_input.replace('.edf',''), output_path, add_existing_annotations=True)
 
 # ------------- STEP 2: Preprocess for OSD ----------------
@@ -106,16 +108,15 @@ def create_OSD_FILES(file, write_path):
 
                 label = np.vstack((label_stage, label_arousal))
 
-            print(f"Original data shape: {data.shape}")
-            print(f"Original label shape: {label.shape}")
             data_pre = np.vstack((pre_process_data(data), label))
-            print(f"data_pre shape: {data_pre.shape}")
             os.makedirs(write_path + file.split('/')[-1].split('.')[0], exist_ok=True)
             with h5.File(out_file, 'w') as hf:
                 hf.attrs['sample_rate'] = 200
                 hf.attrs['Unit_size'] = 'V'
                 for i, ch in enumerate(['F3-M2','F4-M1','C3-M2','C4-M1','O1-M2','O2-M1']):
                     hf.create_dataset(f'channels/{ch}', data=data_pre[i,:], dtype='float32', compression='gzip')
+                    if i == 0:
+                        print(f"Channel {ch}: shape {data_pre[i,:].shape}, percentiles {np.percentile(data_pre[i,:], [1,25,50,75,99])}")
                 hf.create_dataset('annotations/stage_expert_0', data=data_pre[6,:], dtype='uint32', compression='gzip')
                 hf.create_dataset('annotations/arousal_expert_0', data=data_pre[7,:], dtype='uint32', compression='gzip')
     # except Exception as e:
@@ -144,6 +145,8 @@ def run_model_prediction():
                 arousal = f['annotations']['arousal_expert_0'][:]
                 eeg = np.stack([f['channels'][ch][:] for ch in ['F3-M2','F4-M1','C3-M2','C4-M1','O1-M2','O2-M1']])
             eeg_fit = eeg[:, :eeg.shape[1]//600*600]
+            print('EEG needs to be in microvolts. assuming data is in volts and scaling here.')
+            eeg_fit = eeg_fit * 1e6  # Convert from V to µV
             ordinal = model.predict(eeg_fit.reshape(6,600,-1,order='F').T)
             ordinal_ = ordinal[1]
             ord_pred = np.argmax(np.array(ordinal_), axis=1) + 1
@@ -168,9 +171,9 @@ def run_model_prediction():
 
 # ------------- MAIN PIPELINE ----------------
 if __name__ == '__main__':
-    convert_edf_to_h5()
-    h5_files = glob(f'{WRITE_PATH_EDF}*.h5')
-    files_to_process = h5_files if PROCESS_ALL else pd.read_csv(CSV_SPLIT_PATH)['fileid'].apply(lambda x: opj(WRITE_PATH_EDF, x+'.h5')).tolist()
+    # convert_edf_to_h5()
+    h5_files = glob(f'{PATH_PREPARED}*.h5')
+    files_to_process = h5_files if PROCESS_ALL else pd.read_csv(CSV_SPLIT_PATH)['fileid'].apply(lambda x: opj(PATH_PREPARED, x+'.h5')).tolist()
     for file in tqdm(files_to_process):
         create_OSD_FILES(file, WRITE_PATH_H5)
     run_model_prediction()
