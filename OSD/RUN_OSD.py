@@ -13,8 +13,8 @@ import mne
 from mne.preprocessing import EOGRegression
 
 # ------------- CONFIGURATION ----------------
-WORKING_DIRECTORY = '/home/wolfgang/repos/Ordinal-Sleep-Depth'
-FILES_DIRECTORY = '/d/cdac Dropbox/Wolfgang Ganglberger/WolfgangGanglberger/CLAS_Teun_Project/'
+WORKING_DIRECTORY = '/your-work-directory/'
+FILES_DIRECTORY = '/your-files-directory/'
 PROCESS_ALL = True
 SPLIT = 'test'  # can be train, val, or test
 BATCH_SIZE = 32
