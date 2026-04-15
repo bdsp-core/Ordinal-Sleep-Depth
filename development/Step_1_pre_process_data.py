@@ -1,3 +1,8 @@
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "OSD"))
+
 import mne
 from mne.preprocessing import EOGRegression
 import os 

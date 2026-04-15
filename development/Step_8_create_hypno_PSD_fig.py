@@ -1,3 +1,8 @@
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "OSD"))
+
 import pandas as pd
 import numpy as np
 import h5py as h5

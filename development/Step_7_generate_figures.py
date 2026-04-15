@@ -1,4 +1,9 @@
 
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "OSD"))
+
 from sklearn.metrics import confusion_matrix 
 from scipy.stats import pearsonr, spearmanr
 from collections import  Counter
