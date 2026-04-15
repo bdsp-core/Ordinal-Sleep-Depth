@@ -20,6 +20,8 @@ EEG_CHANNELS = ["f3-m2", "f4-m1", "c3-m2", "c4-m1", "o1-m2", "o2-m1"]
 OUTPUT_COLUMN = "OSD"
 SAMPLES_PER_EPOCH = 600
 DEFAULT_SAMPLING_RATE = 200
+DEFAULT_SMOOTH_WINDOW_S = 30.0
+DERIVED_OSD_GROUP = "derived/osd"
 
 
 def _load_tensorflow():
@@ -100,13 +102,31 @@ def _expand_epoch_scores(epoch_scores: np.ndarray, target_length: int, samples_p
     return np.pad(expanded, (0, target_length - expanded.shape[0]), mode="edge")
 
 
+def _moving_average(values: np.ndarray, window: int) -> np.ndarray:
+    arr = np.asarray(values, dtype=float).reshape(-1)
+    if arr.size == 0:
+        return np.zeros(0, dtype=np.float32)
+    window = max(int(window), 1)
+    if window <= 1:
+        return arr.astype(np.float32)
+    kernel = np.ones(window, dtype=float)
+    weights = np.convolve(np.ones_like(arr, dtype=float), kernel, mode="same")
+    smoothed = np.convolve(arr, kernel, mode="same") / np.maximum(weights, 1e-9)
+    return smoothed.astype(np.float32)
+
+
 @dataclass
 class OSDResult:
     sample_scores: np.ndarray
+    smooth_sample_scores: np.ndarray
     epoch_scores: np.ndarray
+    smooth_epoch_scores: np.ndarray
     sampling_rate: int
     samples_per_epoch: int
     channels_used: Dict[str, str]
+    repo_root: Path
+    python_executable: Path
+    execution_mode: str
     source_path: Optional[Path] = None
 
     def to_frame(self) -> pd.DataFrame:
@@ -128,19 +148,22 @@ class OSDScorer:
         self._model = None
         self._scale_params = None
 
-    def score_file(self, path: Path | str) -> OSDResult:
+    def score_file(self, path: Path | str, save_to_input_h5: bool = True) -> OSDResult:
         path = Path(path)
         suffix = path.suffix.lower()
         if suffix == ".h5":
-            return self.score_h5(path)
+            return self.score_h5(path, save_to_input_h5=save_to_input_h5)
         if suffix == ".edf":
             return self.score_edf(path)
         raise ValueError(f"Unsupported input format: {path.suffix}. Expected .h5 or .edf.")
 
-    def score_h5(self, path: Path | str) -> OSDResult:
+    def score_h5(self, path: Path | str, save_to_input_h5: bool = True) -> OSDResult:
         path = Path(path)
         eeg_v, channels_used, sampling_rate = load_h5_eeg(path)
-        return self._score_eeg(eeg_v=eeg_v, source_path=path, channels_used=channels_used, sampling_rate=sampling_rate)
+        result = self._score_eeg(eeg_v=eeg_v, source_path=path, channels_used=channels_used, sampling_rate=sampling_rate)
+        if save_to_input_h5:
+            self.write_h5_cache(path, result)
+        return result
 
     def score_edf(self, path: Path | str) -> OSDResult:
         path = Path(path)
@@ -152,6 +175,34 @@ class OSDScorer:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         result.to_frame().to_csv(output_path, index=False)
         return output_path
+
+    def write_h5_cache(self, h5_path: Path | str, result: OSDResult) -> bool:
+        h5_path = Path(h5_path).expanduser().resolve()
+        try:
+            with h5py.File(h5_path, "a") as handle:
+                if "derived" in handle and "osd" in handle["derived"]:
+                    del handle["derived"]["osd"]
+                elif "derived" not in handle:
+                    handle.create_group("derived")
+
+                group = handle["derived"].create_group("osd")
+                group.create_dataset("sample_scores", data=np.asarray(result.sample_scores, dtype=np.float32))
+                group.create_dataset("smooth_sample_scores", data=np.asarray(result.smooth_sample_scores, dtype=np.float32))
+                group.create_dataset("epoch_scores", data=np.asarray(result.epoch_scores, dtype=np.float32))
+                group.create_dataset("smooth_epoch_scores", data=np.asarray(result.smooth_epoch_scores, dtype=np.float32))
+                group.create_dataset("sampling_rate", data=int(result.sampling_rate))
+                group.create_dataset("samples_per_epoch", data=int(result.samples_per_epoch))
+                group.create_dataset("repo_root", data=str(result.repo_root))
+                group.create_dataset("source_path", data=str(result.source_path or h5_path))
+                group.create_dataset("python_executable", data=str(result.python_executable))
+                group.create_dataset("execution_mode", data=str(result.execution_mode))
+
+                channels_group = group.create_group("channels_used")
+                for key, value in sorted(result.channels_used.items()):
+                    channels_group.create_dataset(str(key), data=str(value))
+            return True
+        except Exception:
+            return False
 
     def _score_eeg(
         self,
@@ -174,18 +225,31 @@ class OSDScorer:
 
         scale_params = self._get_scale_params()
         epoch_scores = (epoch_scores - scale_params["min"]) / scale_params["max"]
+        epoch_s = float(self.samples_per_epoch) / max(float(sampling_rate), 1e-6)
+        smooth_window_epochs = max(int(round(DEFAULT_SMOOTH_WINDOW_S / max(epoch_s, 1e-6))), 1)
+        smooth_epoch_scores = _moving_average(epoch_scores, smooth_window_epochs)
         sample_scores = _expand_epoch_scores(
             epoch_scores,
+            target_length=eeg_v.shape[1],
+            samples_per_epoch=self.samples_per_epoch,
+        )
+        smooth_sample_scores = _expand_epoch_scores(
+            smooth_epoch_scores,
             target_length=eeg_v.shape[1],
             samples_per_epoch=self.samples_per_epoch,
         )
 
         return OSDResult(
             sample_scores=sample_scores,
+            smooth_sample_scores=smooth_sample_scores.astype(np.float32),
             epoch_scores=epoch_scores.astype(np.float32),
+            smooth_epoch_scores=smooth_epoch_scores.astype(np.float32),
             sampling_rate=sampling_rate,
             samples_per_epoch=self.samples_per_epoch,
             channels_used=channels_used,
+            repo_root=MODULE_DIR.parent.resolve(),
+            python_executable=Path(sys.executable).resolve(),
+            execution_mode="inprocess",
             source_path=source_path,
         )
 
@@ -332,6 +396,11 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         default="c4-m1",
         help="Preferred channel for the EEG spectrogram in H5 inputs.",
     )
+    parser.add_argument(
+        "--no-save-h5",
+        action="store_true",
+        help="Do not write computed OSD traces back into /derived/osd for H5 inputs.",
+    )
     parser.add_argument("--print-summary", action="store_true", help="Print channel mapping and output sizes.")
     return parser.parse_args(argv)
 
@@ -339,7 +408,7 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = _parse_args(argv)
     scorer = OSDScorer(weights_path=args.weights, scaler_path=args.scaler)
-    result = scorer.score_file(args.input_path)
+    result = scorer.score_file(args.input_path, save_to_input_h5=not args.no_save_h5)
 
     csv_path = args.output if args.output else _default_csv_path(args.input_path)
     scorer.write_csv(result, csv_path)
@@ -359,6 +428,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"csv={csv_path}")
         if plot_path is not None:
             print(f"plot={plot_path}")
+        if args.input_path.suffix.lower() == ".h5":
+            print(f"saved_to_input_h5={int(not args.no_save_h5)}")
         print(f"samples={result.sample_scores.shape[0]}")
         print(f"epochs={result.epoch_scores.shape[0]}")
         print(f"sampling_rate={result.sampling_rate}")

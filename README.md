@@ -71,6 +71,25 @@ Optional EDF support is also available through the same interface.
 
 The main output is a sample-level OSD array with the same length as the input EEG.
 
+For `.h5` inputs, computed OSD is also written back into the same file by default under:
+
+```text
+/derived/osd
+```
+
+Saved datasets include:
+- `sample_scores`
+- `smooth_sample_scores`
+- `epoch_scores`
+- `smooth_epoch_scores`
+- `sampling_rate`
+- `samples_per_epoch`
+- `repo_root`
+- `source_path`
+- `python_executable`
+- `execution_mode`
+- `/derived/osd/channels_used/*`
+
 With `--plot`, the tool also writes a summary PNG with:
 - stage hypnogram
 - EEG spectrogram
