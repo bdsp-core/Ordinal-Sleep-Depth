@@ -3,9 +3,15 @@
 Ordinal Sleep Depth (OSD) scores sleep depth from EEG as a continuous signal.
 
 This repository is organized for one primary use case:
-- run the pretrained model on a new `.h5` file
+- run the pretrained model on a new `.h5` or `.edf`  files
 
 Everything related to training, paper reproduction, figures, and older development workflows has been moved to [`development/`](/home/wolfgang/repos/Ordinal-Sleep-Depth/development).
+
+## Reference
+
+If you use this tool in your research, please cite:
+
+Meulenbrugge, E. J., Sun, H., Ganglberger, W., Nasiri, S., Thomas, R. J., & Westover, M. B. (2026). *Ordinal Sleep Depth: A data-driven continuous measurement of sleep depth*. *Journal of Sleep Research, 35*(1), e70074.
 
 ## Quick start
 
@@ -74,6 +80,3 @@ With `--plot`, the tool also writes a summary PNG with:
 - [`sample-file.h5`](/home/wolfgang/repos/Ordinal-Sleep-Depth/sample-file.h5) is the built-in demo input.
 - [`development/`](/home/wolfgang/repos/Ordinal-Sleep-Depth/development) contains legacy training, statistics, figure-generation, and paper-reproduction scripts.
 
-## Authors
-
-Erik-Jan Meulenbrugge, Haoqi Sun, Wolfgang Ganglberger, Samaneh Nasiri, Robert J. Thomas, M. Brandon Westover
