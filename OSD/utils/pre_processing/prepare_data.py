@@ -14,39 +14,39 @@ from utils.pre_processing.bdsp_sleep_functions import (
     vectorize_limb_movements
 )
 
-import neurokit2 as nk
+# import neurokit2 as nk
 
-def compute_hr_from_ecg(ecg: np.ndarray, fs: int = 200):
-    """
-    Compute heart rate from a 1D ECG signal using NeuroKit2.
+# def compute_hr_from_ecg(ecg: np.ndarray, fs: int = 200):
+#     """
+#     Compute heart rate from a 1D ECG signal using NeuroKit2.
 
-    Args:
-        ecg (np.ndarray): 1D ECG trace.
-        fs (int): Sampling frequency of the ECG signal in Hz. Default is 200 Hz.
+#     Args:
+#         ecg (np.ndarray): 1D ECG trace.
+#         fs (int): Sampling frequency of the ECG signal in Hz. Default is 200 Hz.
 
-    Returns:
-        np.ndarray: Estimated heart rate (in bpm) at the same sampling frequency as the ECG signal.
-    """
-    # Process the ECG signal to extract R-peaks and HR
-    ecg_cleaned = nk.ecg_clean(ecg, sampling_rate=fs)
-    # signals, info = nk.ecg_process(ecg_cleaned, sampling_rate=fs, hrv_features=None)
-    # info = nk.ecg_findpeaks(ecg_cleaned, sampling_rate=fs)
-    # Identify and Correct Peaks using "Kubios" Method
-    rpeaks_uncorrected = nk.ecg_findpeaks(ecg_cleaned, method="pantompkins", sampling_rate=fs)
-    info, rpeaks_corrected = nk.signal_fixpeaks(
-        rpeaks_uncorrected, sampling_rate=fs, iterative=True, method="Kubios", show=False
-    )
-    rate_corrected = nk.signal_rate(rpeaks_corrected, desired_length=len(ecg))
+#     Returns:
+#         np.ndarray: Estimated heart rate (in bpm) at the same sampling frequency as the ECG signal.
+#     """
+#     # Process the ECG signal to extract R-peaks and HR
+#     ecg_cleaned = nk.ecg_clean(ecg, sampling_rate=fs)
+#     # signals, info = nk.ecg_process(ecg_cleaned, sampling_rate=fs, hrv_features=None)
+#     # info = nk.ecg_findpeaks(ecg_cleaned, sampling_rate=fs)
+#     # Identify and Correct Peaks using "Kubios" Method
+#     rpeaks_uncorrected = nk.ecg_findpeaks(ecg_cleaned, method="pantompkins", sampling_rate=fs)
+#     info, rpeaks_corrected = nk.signal_fixpeaks(
+#         rpeaks_uncorrected, sampling_rate=fs, iterative=True, method="Kubios", show=False
+#     )
+#     rate_corrected = nk.signal_rate(rpeaks_corrected, desired_length=len(ecg))
 
-    # Extract heart rate from processed signals
-    heart_rate = rate_corrected
+#     # Extract heart rate from processed signals
+#     heart_rate = rate_corrected
     
-    return heart_rate
+#     return heart_rate
 
 
 def preprocess_signals(signal, fs_original, fs_target=200, autoscale_signals=True, verbose=False):
 
-    verbose = False
+    verbose = True
     # Standardize channel names
     signal = standardize_channel_names(signal, verbose)
 
@@ -65,17 +65,17 @@ def preprocess_signals(signal, fs_original, fs_target=200, autoscale_signals=Tru
             # Scale signal channels from uV to V
             signal = scale_signal_to_voltage(signal)
 
-    auto_scale_spo2 = True
-    if auto_scale_spo2:
-        spo2 = signal['spo2'].values
-        scale_factor = 1
-        while (np.percentile(spo2, 97) < 1) and (np.median(spo2) > 0) and (np.median(spo2) < 1):
-            scale_factor *= 100
-            spo2 *= 100
-        if scale_factor > 1:
-            signal['spo2'] = spo2
-        # clip to 0-100:
-        signal['spo2'] = np.clip(signal['spo2'], 0, 100)
+    # auto_scale_spo2 = True
+    # if auto_scale_spo2:
+    #     spo2 = signal['spo2'].values
+    #     scale_factor = 1
+    #     while (np.percentile(spo2, 97) < 1) and (np.median(spo2) > 0) and (np.median(spo2) < 1):
+    #         scale_factor *= 100
+    #         spo2 *= 100
+    #     if scale_factor > 1:
+    #         signal['spo2'] = spo2
+    #     # clip to 0-100:
+    #     signal['spo2'] = np.clip(signal['spo2'], 0, 100)
         
     return signal
     
@@ -128,12 +128,19 @@ def preprocess_data(signal, annotations, params, autoscale_signals=True , verbos
     # Preprocess signals:
     signal = preprocess_signals(signal, fs, fs_target=200, autoscale_signals=autoscale_signals, verbose=verbose)
     
-    # Preprocess annotations:
-    if annotations is not None:
-        annotations, results = preprocess_annotations(annotations, fs, signal_len, fs_target=200, verbose=verbose)
-    else:
-        annotations = None
-        results = {}
+    # # Preprocess annotations:
+    # if annotations is not None:
+    #     annotations, results = preprocess_annotations(annotations, fs, signal_len, fs_target=200, verbose=verbose)
+    # else:
+    # annotations = None
+    
+    # # if not annotations/stage and annotations/arousal exist, set array with same length as data,
+            # set stage to 1 (N3) and arousal to 0:
+    annotations = pd.DataFrame()
+    annotations['stage'] = np.ones((signal.shape[0],), dtype=np.uint8)
+    annotations['arousal'] = np.zeros((signal.shape[0],), dtype=np.uint8)
+
+    results = {}
         
     return signal, annotations, results
 
@@ -239,24 +246,24 @@ def check_channels_present(signal, verbose=False):
     # if not present, set to 0 array.
     ch_present = signal.columns
     
-    ch_respiratory = ['cpres', 'ptaf', 'airflow', 'cflow']
-    # if none of these exist, at least 'abd' and 'chest' need to be there:
-    assert 'abd' in ch_present and 'chest' in ch_present, \
-        f"Not sufficient respiratory channels found: At least 'abd' and 'chest' need to be present in the file. Channels present: {list(ch_present)}"
+    # ch_respiratory = ['cpres', 'ptaf', 'airflow', 'cflow']
+    # # if none of these exist, at least 'abd' and 'chest' need to be there:
+    # assert 'abd' in ch_present and 'chest' in ch_present, \
+    #     f"Not sufficient respiratory channels found: At least 'abd' and 'chest' need to be present in the file. Channels present: {list(ch_present)}"
     
-    # set the missing ones to 0 array
-    for ch in ch_respiratory:
-        if ch not in ch_present:
-            if verbose:
-                print(f"Channel {ch} not present, setting to 0 array. Channel present: {list(ch_present)}")
-            signal[ch] = 0
+    # # set the missing ones to 0 array
+    # for ch in ch_respiratory:
+    #     if ch not in ch_present:
+    #         if verbose:
+    #             print(f"Channel {ch} not present, setting to 0 array. Channel present: {list(ch_present)}")
+    #         signal[ch] = 0
         
-    if 'cpap_on' not in signal.columns:
-        signal['cpap_on'] = determine_cpap_start(signal['cpres'].values, fs=200)
+    # if 'cpap_on' not in signal.columns:
+    #     signal['cpap_on'] = determine_cpap_start(signal['cpres'].values, fs=200)
         
-    ch_present = signal.columns
+    # ch_present = signal.columns
     
-    # EEG: Create derived channels if necessary
+    # # EEG: Create derived channels if necessary
     
     for ch in ['f3', 'c3', 'o1', 'e1']:
         if (ch in ch_present) and ('m2' in ch_present) and (f'{ch}-m2' not in ch_present):
@@ -295,49 +302,54 @@ def check_channels_present(signal, verbose=False):
                 else:
                     signal[ch] = signal[eeg_channels_present[0]]
                 
-    # same for EOG:
-    eog_channels = ['e1-m2', 'e2-m1']
-    if all(ch not in signal.columns for ch in eog_channels):
-        raise ValueError(f"No EOG channels found. At least one of the following channels needs to be present: {eog_channels}. Channels present: {list(ch_present)}")
-    else:
-        eog_channels_present = [ch for ch in eog_channels if ch in signal.columns]
-        for ch in eog_channels:
-            if ch not in eog_channels_present:
-                ch_contralateral = dict_contralateral[ch]
-                if ch_contralateral in signal.columns:
-                    signal[ch] = signal[ch_contralateral]
-                else:
-                    signal[ch] = signal[eog_channels_present[0]]
+    # # same for EOG:
+    # eog_channels = ['e1-m2', 'e2-m1']
+    # if all(ch not in signal.columns for ch in eog_channels):
+    #     raise ValueError(f"No EOG channels found. At least one of the following channels needs to be present: {eog_channels}. Channels present: {list(ch_present)}")
+    # else:
+    #     eog_channels_present = [ch for ch in eog_channels if ch in signal.columns]
+    #     for ch in eog_channels:
+    #         if ch not in eog_channels_present:
+    #             ch_contralateral = dict_contralateral[ch]
+    #             if ch_contralateral in signal.columns:
+    #                 signal[ch] = signal[ch_contralateral]
+    #             else:
+    #                 signal[ch] = signal[eog_channels_present[0]]
     
-    # chin EMG:
-    if ('chin 1' in signal.columns) and ('chin 2' in signal.columns) and ('chin1-chin2' not in signal.columns):
-        signal['chin1-chin2'] = signal['chin 1'] - signal['chin 2']
+    # # chin EMG:
+    # if ('chin 1' in signal.columns) and ('chin 2' in signal.columns) and ('chin1-chin2' not in signal.columns):
+    #     signal['chin1-chin2'] = signal['chin 1'] - signal['chin 2']
         
-    # LIMB: Create derived channels if necessary
-    ch_present = signal.columns
-    if 'rleg+' in ch_present and 'rleg-' in ch_present and 'rat' not in ch_present:
-        signal['rat'] = signal['rleg+'] - signal['rleg-']
-    if 'lleg+' in ch_present and 'lleg-' in ch_present and 'lat' not in ch_present:
-        signal['lat'] = signal['lleg+'] - signal['lleg-']
-    # if still not present, set to 0 array
-    if 'rat' not in ch_present:
-        signal['rat'] = 0
-    if 'lat' not in ch_present:
-        signal['lat'] = 0
+    # # LIMB: Create derived channels if necessary
+    # ch_present = signal.columns
+    # if 'rleg+' in ch_present and 'rleg-' in ch_present and 'rat' not in ch_present:
+    #     signal['rat'] = signal['rleg+'] - signal['rleg-']
+    # if 'lleg+' in ch_present and 'lleg-' in ch_present and 'lat' not in ch_present:
+    #     signal['lat'] = signal['lleg+'] - signal['lleg-']
+    # # if still not present, set to 0 array
+    # if 'rat' not in ch_present:
+    #     signal['rat'] = 0
+    # if 'lat' not in ch_present:
+    #     signal['lat'] = 0
         
-    if 'hr' in signal.columns:
-        pass
-    else:
-        signal['hr'] = compute_hr_from_ecg(signal['ecg'].values, fs=200)
+    # if 'hr' in signal.columns:
+    #     pass
+    # else:
+    #     signal['hr'] = compute_hr_from_ecg(signal['ecg'].values, fs=200)
+
+    # if no ECG channel is present, set to 0 array
+    if 'ecg' not in signal.columns:
+        signal['ecg'] = 0
 
     ch_needed = [
-        'f3-m2', 'f4-m1', 'c3-m2', 'c4-m1', 'o1-m2', 'o2-m1',
-        'e1-m2', 'e2-m1', 'chin1-chin2', 'abd', 'chest', 'spo2', 'ecg', 'lat', 'rat',
+        'f3-m2', 'f4-m1', 'c3-m2', 'c4-m1', 'o1-m2', 'o2-m1', 'ecg'
     ]
+        # 'e1-m2', 'e2-m1', 'chin1-chin2', 'abd', 'chest', 'spo2', 'ecg', 'lat', 'rat',
+    # ]
     
-    ch_optional = [
-         'airflow', 'ptaf', 'cflow', 'cpres', 'hr', 'position', 'cpap_on',
-    ]
+    # ch_optional = [
+    #      'airflow', 'ptaf', 'cflow', 'cpres', 'hr', 'position', 'cpap_on',
+    # ]
     
     # Ensure all needed channels are present
     all_channels_avail = all(ch in signal.columns for ch in ch_needed)
@@ -347,9 +359,9 @@ def check_channels_present(signal, verbose=False):
             print(f"Available channels: {signal.columns}")
         raise ValueError(f"Not all channels are available, missing: {set(ch_needed) - set(signal.columns)}. Available channels: {signal.columns}")
 
-    ch_optional_available = [ch for ch in ch_optional if ch in signal.columns]
+    # ch_optional_available = [ch for ch in ch_optional if ch in signal.columns]
     
-    signal = signal[ch_needed + ch_optional_available]
+    signal = signal[ch_needed] # + ch_optional_available]
 
     return signal
 
@@ -357,10 +369,10 @@ def check_channels_present(signal, verbose=False):
 def resample_signals(signal, fs, target_fs):
     """ Resamples the signals to the target frequency (200 Hz). """
     
-    spo2_original = signal['spo2'].values
+    # spo2_original = signal['spo2'].values
     signal_resampled = pd.DataFrame(resample_poly(signal, target_fs, fs, axis=0), columns=signal.columns)
     ## spo2 better be resampled by linear interpolation
-    signal_resampled['spo2'] = np.interp(np.arange(0, len(signal_resampled), 1), np.arange(0, len(spo2_original), 1), spo2_original)
+    # signal_resampled['spo2'] = np.interp(np.arange(0, len(signal_resampled), 1), np.arange(0, len(spo2_original), 1), spo2_original)
     
     return signal_resampled
 
@@ -475,7 +487,9 @@ def process_file(path_input, path_output, add_existing_annotations=False, autosc
     if 1:
         
         signal, params = load_bdsp_signal(signal_path)
-        
+        params['Fs'] = int(params['Fs'])
+        print(f"Processing file: {signal_path}")
+        print(f"Original sampling frequency: {params['Fs']} Hz")
         if add_existing_annotations:
             annot_path = signal_path.replace('_eeg.edf', '_annotations.csv')
             annotations = pd.read_csv(annot_path)
