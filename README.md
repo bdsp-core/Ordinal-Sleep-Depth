@@ -13,6 +13,8 @@ If you use this tool in your research, please cite:
 
 Meulenbrugge, E. J., Sun, H., Ganglberger, W., Nasiri, S., Thomas, R. J., & Westover, M. B. (2026). *Ordinal Sleep Depth: A data-driven continuous measurement of sleep depth*. *Journal of Sleep Research, 35*(1), e70074.
 
+![OSD overview](development/osd.jpeg)
+
 ## Quick start
 
 Run the packaged demo:
@@ -79,4 +81,3 @@ With `--plot`, the tool also writes a summary PNG with:
 - [`OSD/`](/home/wolfgang/repos/Ordinal-Sleep-Depth/OSD) is the user-facing inference package.
 - [`sample-file.h5`](/home/wolfgang/repos/Ordinal-Sleep-Depth/sample-file.h5) is the built-in demo input.
 - [`development/`](/home/wolfgang/repos/Ordinal-Sleep-Depth/development) contains legacy training, statistics, figure-generation, and paper-reproduction scripts.
-
