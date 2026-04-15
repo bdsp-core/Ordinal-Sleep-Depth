@@ -1,3 +1,8 @@
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "OSD"))
+
 from utils.models.OSD_architecture import *
 from utils.data_loaders.custom_data_loader import *
 from utils.data_loaders.data_loader_preparation import *
